@@ -1,0 +1,47 @@
+PROJECT: 13_SelfTraining_SEMI
+TITLE: Data Sources & Feature Engineering
+
+--------------------------------------------------
+OVERVIEW:
+This dataset contains 4,647 employee records from a live HR system, of which 500 carry a confirmed outcome (resigned = 0 or 1) and 4,147 carry NaN — not missing data, but genuinely unknown future outcomes. The ML task is binary classification to predict employee resignation risk using Self-Training (semi-supervised), which expands the labeled pool from 500 to 732 records by adding high-confidence pseudo-labels. Labeled subset: 278 stayed (55.6%), 222 resigned (44.4%).
+
+--------------------------------------------------
+REAL-WORLD DATA SOURCES:
+
+Feature                | Source System                                 | Department Owner
+-----------------------|-----------------------------------------------|------------------------------
+age                    | HRIS (SAP SuccessFactors / Workday)           | HR Operations
+years_at_company       | HRIS (SAP SuccessFactors / Workday)           | HR Operations
+job_level              | Org Chart / HRIS                              | Talent Management
+monthly_salary         | Payroll System (ADP / SAP HR)                 | Compensation & Benefits
+job_satisfaction       | Employee Engagement Platform (Glint / Qualtrics) | People Analytics
+workload               | Manager Assessment / Project Tracking         | Direct Management
+avg_overtime_hours     | Time & Attendance System                      | HR Operations
+resigned               | Resignation Tracking / Exit Survey            | HR Business Partners
+
+--------------------------------------------------
+VARIABLE DESCRIPTIONS:
+
+age                 - Employee age (years); range 20–60. Career stage affects risk tolerance and mobility. Feature importance: 0.101.
+years_at_company    - Organizational tenure (years); range 0–20. Tenure shapes departure probability non-linearly. Feature importance: 0.100.
+job_level           - Role hierarchy: 1=Operative, 2=Analyst, 3=Coordinator, 4=Manager. Weakest driver — level alone explains little without context. Feature importance: 0.040.
+monthly_salary      - Gross monthly salary (MXN); range 8,000–70,000. Compensation anchors retention across all levels. Feature importance: 0.151.
+job_satisfaction    - Self-reported satisfaction score (1–5); highest single signal — disengaged employees leave. Feature importance: 0.262.
+workload            - Reported workload intensity (1–5); intensity without recognition compounds dissatisfaction. Feature importance: 0.184.
+avg_overtime_hours  - Average overtime hours per month (0–20); chronic overtime reveals workload-contract misalignment. Feature importance: 0.161.
+resigned            - Target: 0 = stayed, 1 = resigned, NaN = actively employed (unlabeled). NaN indicates genuinely unknown future, not missing data.
+
+--------------------------------------------------
+FEATURE ENGINEERING:
+
+No StandardScaler required — Random Forest base learner is scale-invariant. Self-Training loop: (1) base RF trained on 400 labeled records; (2) 4,147 unlabeled profiles scored for P(resign); (3) confidence filter: P >= 0.90 → pseudo-resigned, P <= 0.10 → pseudo-stayed; (4) 332 pseudo-labels generated (99 pseudo-resigned, 233 pseudo-stayed); (5) 3,815 uncertain employees discarded; (6) final RF retrained on 732 records (400 real + 332 pseudo). Confidence threshold of 90%/10% is conservative by design to minimize label noise. Evaluation on 100 held-out real-labeled records never touched during training. RF parameters: 200 trees.
+
+--------------------------------------------------
+BUSINESS CONTEXT:
+
+Used by People Analytics and HR Business Partners in industrial and corporate organizations. The model enables proactive retention intervention — identifying at-risk employees before they resign, rather than reacting after the departure. Addresses the structural reality of live HR data: resignation records exist only for people who have already left; everyone still working is unlabeled by definition. Ethical note: model output indicates organizational risk exposure, not employee performance — intended for proactive HR intervention, not performance reviews or termination decisions.
+
+--------------------------------------------------
+GOAL:
+
+Predict employee resignation risk using Self-Training to extend learning from 500 labeled records to 732 by incorporating 332 high-confidence pseudo-labels from the 4,147 unlabeled pool, enabling earlier and broader at-risk identification than fully supervised approaches. Model achieved Accuracy = 69.0%, AUC-ROC = 0.705, F1 = 0.608, Precision = 68.6%, Recall = 54.5% on 100 held-out real-labeled records.

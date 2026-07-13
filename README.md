@@ -18,15 +18,15 @@ This is not a data quality problem. This is the **structural reality of any live
 
 Self-Training is the algorithm family designed for exactly this condition. It begins with what we know (500 labeled records), builds an initial model, scores the unlabeled pool with that model, and **selectively promotes the most confident predictions into the training set** — creating pseudo-labels that expand the learning signal without inventing information. The key design choice is the confidence threshold: in this project, only employees with P(resign) ≥ 0.90 or ≤ 0.10 receive a pseudo-label. Everyone in the uncertain middle gets discarded.
 
-The result is a model that learned from 606 examples — 400 labeled, 206 pseudo-labeled — while being evaluated exclusively on real, held-out labels. That boundary is what keeps the validation honest.
+The result is a model that learned from 732 examples — 400 labeled, 332 pseudo-labeled — while being evaluated exclusively on real, held-out labels. That boundary is what keeps the validation honest.
 
 ---
 
 ## 📊 Dataset
 
-**4,500 employee records · 7 features · Target: `resigned` (0 / 1 / NaN)**
+**4,647 employee records · 7 features · Target: `resigned` (0 / 1 / NaN)**
 
-The defining characteristic of this dataset is its label structure: 500 records carry a confirmed outcome (`resigned = 0` or `1`); 4,000 carry `NaN` — not missing data, but genuinely unknown future. The labeled subset is near-balanced: 278 stayed (55.6%), 222 resigned (44.4%).
+The defining characteristic of this dataset is its label structure: 500 records carry a confirmed outcome (`resigned = 0` or `1`); 4,147 carry `NaN` — not missing data, but genuinely unknown future. The labeled subset is near-balanced: 278 stayed (55.6%), 222 resigned (44.4%).
 
 | Column | Type | Range | Description |
 |--------|------|-------|-------------|
@@ -72,11 +72,11 @@ Random Forest satisfies all three conditions. It generates probability scores th
 | Step | What occurred |
 |------|--------------|
 | Initial training | Base RF trained on 400 labeled records |
-| Unlabeled scoring | 4,000 employee profiles scored for P(resign) |
+| Unlabeled scoring | 4,147 employee profiles scored for P(resign) |
 | Confidence filter | Threshold: P ≥ 0.90 → pseudo-resigned · P ≤ 0.10 → pseudo-stayed |
-| Pseudo-labels generated | 206 employees (60 pseudo-resigned, 146 pseudo-stayed) |
-| Discarded (uncertain zone) | 3,794 employees — their future stays unknown |
-| Expanded training set | 606 records (400 real + 206 pseudo) |
+| Pseudo-labels generated | 332 employees (99 pseudo-resigned, 233 pseudo-stayed) |
+| Discarded (uncertain zone) | 3,815 employees — their future stays unknown |
+| Expanded training set | 732 records (400 real + 332 pseudo) |
 | Final model | New RF retrained on expanded set |
 | Evaluation | 100 held-out real-labeled records — never touched during training |
 
@@ -90,22 +90,22 @@ Evaluated on 100 held-out real-labeled records — test set separated before any
 
 | Metric | Value |
 |--------|-------|
-| Accuracy | 71.0% |
-| AUC-ROC | 0.7940 |
-| F1 Score | 0.6420 |
-| Precision | 70.3% |
-| Recall | 59.1% |
+| Accuracy | 69.0% |
+| AUC-ROC | 0.7045 |
+| F1 Score | 0.6076 |
+| Precision | 68.6% |
+| Recall | 54.5% |
 
 **Confusion Matrix (n = 100 test records):**
 
 | | Predicted: Stay | Predicted: Resign |
 |--|--|--|
 | **Actual: Stay** | 45 ✓ | 11 ✗ |
-| **Actual: Resign** | 18 ✗ | 26 ✓ |
+| **Actual: Resign** | 20 ✗ | 24 ✓ |
 
-**Operational interpretation:** The model correctly flags 26 of 44 at-risk employees (Recall 59.1%) with high precision — 70% of its resignation alerts are real. The 18 missed cases (false negatives) represent employees who resigned without the model catching the signal. In HR terms, false negatives are the more costly error: each is a departure the organization had no chance to prevent.
+**Operational interpretation:** The model correctly flags 24 of 44 at-risk employees (Recall 54.5%) with solid precision — 69% of its resignation alerts are real. The 20 missed cases (false negatives) represent employees who resigned without the model catching the signal. In HR terms, false negatives are the more costly error: each is a departure the organization had no chance to prevent.
 
-An AUC-ROC of 0.794 means the model meaningfully ranks high-risk employees above low-risk ones — which is what matters for prioritized retention action. At 71% accuracy on a label-scarce problem where supervised models would train on 400 examples, self-training earns its complexity.
+An AUC-ROC of 0.705 means the model meaningfully ranks high-risk employees above low-risk ones — which is what matters for prioritized retention action. At 69% accuracy on a label-scarce problem where supervised models would train on 400 examples, self-training earns its complexity.
 
 ---
 
@@ -115,12 +115,12 @@ Feature importances from the final self-training model (Mean Decrease Impurity a
 
 | Feature | Importance | Operational Meaning |
 |---------|-----------|---------------------|
-| `job_satisfaction` | 0.218 | Highest single signal — disengaged employees leave |
-| `monthly_salary` | 0.168 | Compensation anchors retention across all levels |
-| `workload` | 0.167 | Intensity without recognition compounds dissatisfaction |
-| `avg_overtime_hours` | 0.154 | Chronic overtime reveals workload-contract misalignment |
-| `years_at_company` | 0.130 | Tenure shapes departure probability non-linearly |
-| `age` | 0.124 | Career stage affects risk tolerance and mobility |
+| `job_satisfaction` | 0.262 | Highest single signal — disengaged employees leave |
+| `workload` | 0.184 | Intensity without recognition compounds dissatisfaction |
+| `avg_overtime_hours` | 0.161 | Chronic overtime reveals workload-contract misalignment |
+| `monthly_salary` | 0.151 | Compensation anchors retention across all levels |
+| `age` | 0.101 | Career stage affects risk tolerance and mobility |
+| `years_at_company` | 0.100 | Tenure shapes departure probability non-linearly |
 | `job_level` | 0.040 | Weakest driver — level alone explains little without context |
 
 The four dominant features — satisfaction, salary, workload, overtime — form a coherent narrative: **people leave when the psychological and economic contract with the organization breaks down**. Job level, by itself, carries almost no predictive weight.
@@ -138,7 +138,7 @@ SelfT_HR_Turnover_Prediction/
 └── README.md
 ```
 
-> 📦 **Full Project Pack** — complete dataset (4,500 rows with 4,000 unlabeled employees),
+> 📦 **Full Project Pack** — complete dataset (4,647 rows with 4,147 unlabeled employees),
 > notebook with full outputs, presentation deck (PPTX + PDF), and `app.py` simulator
 > available on [Gumroad](https://lozanolsa.gumroad.com).
 >
